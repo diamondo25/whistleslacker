@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/nlopes/slack"
 	"strings"
+	"time"
 )
 
 var slackToken = ""
@@ -81,6 +82,8 @@ func main() {
 		err := migrateChannel(channel)
 		if err != nil {
 			fmt.Println(fmt.Sprintf("Error while converting %s: %v", channel.Name, err))
+		} else {
+			fmt.Println("Converted channel!")
 		}
 	}
 }
@@ -95,9 +98,11 @@ func migrateChannel(channel slack.Channel) error {
 		panic(err)
 	}
 
-	_, err = slackClient.RenameConversation(channel.ID, channel.Name+"-old")
+	oldChannelName := fmt.Sprintf(oldChannelFormat, channel.Name)
+
+	_, err = slackClient.RenameConversation(channel.ID, oldChannelName)
 	if err != nil {
-		return fmt.Errorf("error while renaming conversation: %v", err)
+		return fmt.Errorf("error while renaming conversation to %s: %v", oldChannelName, err)
 	}
 
 	newChannel, err := slackClient.CreateConversation(channel.Name, false)
@@ -139,15 +144,20 @@ func migrateChannel(channel slack.Channel) error {
 
 			if revertToSingleChannelGuest {
 				// Make sure we turn them back
-				defer func(teamId string, uid string, channelId string) {
-					err := slackClient.SetUltraRestricted(teamId, uid, channelId)
+				defer func() {
+					err := slackClient.SetUltraRestricted(memberInfo.TeamID, memberInfo.ID, newChannel.ID)
 					if err != nil {
-						fmt.Println("Unable to reset user ", uid, ":", err)
+						fmt.Println("Unable to reset user ", memberInfo.ID, ":", err)
+					} else {
+						fmt.Println("Put back", memberInfo.Name, "as a single-channel guest")
 					}
-				}(memberInfo.TeamID, memberInfo.ID, newChannel.ID)
+				}()
 			}
 		}
 	}
+
+	// Possible fix for Slack kicking the previously single-channel users from the old channel?
+	time.Sleep(5 * time.Second)
 
 	var usersToInvite []string
 
@@ -166,4 +176,5 @@ func migrateChannel(channel slack.Channel) error {
 		return fmt.Errorf("error while inviting a list of people back into %s: %v", newChannel.Name, err)
 	}
 
+	return nil
 }
