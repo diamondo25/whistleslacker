@@ -1,5 +1,5 @@
 # whistleslacker
-#### Make a private channel public. Or, at least, moving everyone over to a public channel...
+#### Make a private slack channel public. Or, at least, moving everyone over to a public channel...
 
 It's recommended to use your token used on the admin page (run `boot_data.api_token` inside the console on the admin page) as it would otherwise block you from switching a user from single-channel (ultra restricted) to a multi-channel (restricted) guest.
 
